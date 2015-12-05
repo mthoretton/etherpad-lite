@@ -1,6 +1,5 @@
 var settings = require('../../utils/Settings');
 var socketio = require('socket.io');
-var redis = require('socket.io-redis');
 var socketIORouter = require("../../handler/SocketIORouter");
 var hooks = require("ep_etherpad-lite/static/js/pluginfw/hooks");
 var webaccess = require("ep_etherpad-lite/node/hooks/express/webaccess");
@@ -18,7 +17,10 @@ exports.expressCreateServer = function (hook_name, args, cb) {
   var io = socketio({
     transports: settings.socketTransportProtocols
   }).listen(args.server);
-  io.adapter(redis({ host: 'localhost', port: 6379 }));
+  if (settings.socketioSettings) {
+    var redis = require('socket.io-redis');
+    io.adapter(redis(settings.socketioSettings));
+  }
 
   /* Require an express session cookie to be present, and load the
    * session. See http://www.danielbaulig.de/socket-ioexpress for more
