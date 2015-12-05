@@ -119,7 +119,12 @@ exports.expressConfigure = function (hook_name, args, cb) {
     exports.secret = settings.sessionKey; // Isn't this being reset each time the server spawns?
   }
 
-  args.app.sessionStore = exports.sessionStore;
+var redis = require('redis');
+var redisClient = redis.createClient();
+var RedisStore = require('connect-redis')(sessionModule);
+var redisStore = new RedisStore({ client: redisClient });
+
+  args.app.sessionStore = redisStore;
   args.app.use(sessionModule({secret: exports.secret, store: args.app.sessionStore, resave: true, saveUninitialized: true, name: 'express_sid' }));
 
   args.app.use(cookieParser(settings.sessionKey, {}));
