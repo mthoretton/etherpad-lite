@@ -269,6 +269,7 @@ exports.handleMessage = function(client, message)
         padChannels.emit(message.padId, {client: client, message: message});// add to pad queue
         /* TODO */
         message.client = client;
+        message.idserver = idServer;
         var stringify = require('json-stringify-safe');
         pub.publish('notif-server', stringify(message, null, 2));
         /* /TODO */
