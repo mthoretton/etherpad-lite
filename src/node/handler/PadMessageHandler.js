@@ -57,6 +57,32 @@ stats.gauge('totalUsers', function() {
   return Object.keys(socketio.sockets.sockets).length
 })
 
+/* TODO */
+var redis = require('redis');
+var sub = redis.createClient(settings.socketioSettings);
+var pub = redis.createClient(settings.socketioSettings);
+var idServer = Math.random() * (99999999 - 0) + 99999999;
+sub.subscribe('notif-server');
+pub.publish('notif-server', JSON.stringify({idserver: idServer}));
+sub.on('message', function (channel, message) {
+  message = JSON.parse(message);
+  if (message.idserver!==idServer) {
+    messageLogger.info("J'ai reçu un message de la part d'un autre serveur !");
+    // on gere que le cas du message handler la
+    if (message.type == "COLLABROOM") {
+      if (message.data.type=="CHAT_MESSAGE") {
+        // la il faut faire les async et compagnie
+        padManager.getPad(message.padId, function(err, _pad)
+        {
+          //if(ERR(err, callback)) return;
+          _pad.appendChatMessage(message.data.text, message.data.userId, message.data.time);
+        });
+      }  
+    }
+  }
+});
+/* /TODO */
+
 /**
  * A changeset queue per pad that is processed by handleUserChanges()
  */
@@ -417,6 +443,11 @@ exports.sendChatMessageToPadClients = function (time, userId, text, padId) {
 
       var msg = {
         type: "COLLABROOM",
+        /* TODO */
+        idserver: idServer,
+        // il faudrait trouver un autre moyen de récupérer le padId
+        padId: padId,
+        /* /TODO */
         data: {
                 type: "CHAT_MESSAGE",
                 userId: userId,
@@ -428,6 +459,9 @@ exports.sendChatMessageToPadClients = function (time, userId, text, padId) {
 
       //broadcast the chat message to everyone on the pad
       socketio.sockets.in(padId).json.send(msg);
+      /* TODO */
+      pub.publish('notif-server', JSON.stringify(msg));
+      /* /TODO */
 
       callback();
     }
