@@ -85,7 +85,11 @@ sub.on('message', function (channel, message) {
               callback();
           }
         ]);
-      }  
+      }
+      if (message.data.type=="USER_CHANGES") {
+        stats.counter('pendingEdits').inc()
+        padChannels.emit(message.padId, {client: message.client, message: message});// add to pad queue
+      }
     }
   }
 });
@@ -263,6 +267,11 @@ exports.handleMessage = function(client, message)
       } else if (message.data.type == "USER_CHANGES") {
         stats.counter('pendingEdits').inc()
         padChannels.emit(message.padId, {client: client, message: message});// add to pad queue
+        /* TODO */
+        message.client = client;
+        var stringify = require('json-stringify-safe');
+        pub.publish('notif-server', stringify(message, null, 2));
+        /* /TODO */
       } else if (message.data.type == "USERINFO_UPDATE") {
         handleUserInfoUpdate(client, message);
       } else if (message.data.type == "CHAT_MESSAGE") {
