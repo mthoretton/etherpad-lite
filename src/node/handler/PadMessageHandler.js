@@ -67,16 +67,24 @@ pub.publish('notif-server', JSON.stringify({idserver: idServer}));
 sub.on('message', function (channel, message) {
   message = JSON.parse(message);
   if (message.idserver!==idServer) {
-    messageLogger.info("J'ai reçu un message de la part d'un autre serveur !");
-    // on gere que le cas du message handler la
+    messageLogger.info("Received message from other server");
     if (message.type == "COLLABROOM") {
       if (message.data.type=="CHAT_MESSAGE") {
-        // la il faut faire les async et compagnie
-        padManager.getPad(message.padId, function(err, _pad)
-        {
-          //if(ERR(err, callback)) return;
-          _pad.appendChatMessage(message.data.text, message.data.userId, message.data.time);
-        });
+        // Saving message to database
+        // TODO LAL : refactor with sendChatMessageToPadClients
+        async.series([
+          function (callback){
+            padManager.getPad(message.padId, function(err, _pad)
+            {
+              if(ERR(err, callback)) return;
+              callback();
+            });
+          },
+          function (callback) {
+              _pad.appendChatMessage(message.data.text, message.data.userId, message.data.time);
+              callback();
+          }
+        ]);
       }  
     }
   }
