@@ -62,6 +62,7 @@ var redis = require('redis');
 var sub = redis.createClient(settings.socketioSettings);
 var pub = redis.createClient(settings.socketioSettings);
 var idServer = Math.random() * (99999999 - 0) + 99999999;
+var redisClient = redis.createClient(settings.socketioSettings);
 sub.subscribe('notif-server');
 pub.publish('notif-server', JSON.stringify({idserver: idServer}));
 sub.on('message', function (channel, message) {
@@ -88,7 +89,21 @@ sub.on('message', function (channel, message) {
       }
       if (message.data.type=="USER_CHANGES") {
         stats.counter('pendingEdits').inc()
-        padChannels.emit(message.padId, {client: message.client, message: message});// add to pad queue
+        console.log(message.client.id)
+        if(!sessioninfos[message.client.id]) {
+          redisClient.on("error", function (err) {
+            console.log("Error " + err);
+          });
+          redisClient.get("client_"+message.client.id, function(err, value) {
+            if (err) {
+              console.error("error");
+            } else {
+              console.log("Worked");
+              sessioninfos[message.client.id]=JSON.parse(value);
+              padChannels.emit(message.padId, {client: message.client, message: message});// add to pad queue
+            }
+          });
+        }
       }
     }
   }
@@ -320,6 +335,15 @@ exports.handleMessage = function(client, message)
           var auth = sessioninfos[client.id].auth;
           var checkAccessCallback = function(err, statusObject)
           {
+            /* TODO */
+            console.log("salut")
+            redisClient.on("error", function (err) {
+                console.log("Error " + err);
+            });
+            var stringify = require('json-stringify-safe');
+            redisClient.set("client_"+client.id, stringify(sessioninfos[client.id], null, 2), redis.print); // marche pas le client.json
+
+            /* /TODO */
             if(ERR(err, callback)) return;
 
             //access was granted
@@ -726,7 +750,6 @@ function handleUserChanges(data, cb)
     function(callback)
     {
       //ex. _checkChangesetAndPool
-
       try
       {
         // Verify that the changeset has valid syntax and is in canonical form
