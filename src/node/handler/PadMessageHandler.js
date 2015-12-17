@@ -64,10 +64,10 @@ var pub = redis.createClient(settings.socketioSettings);
 var idServer = Math.random() * (99999999 - 0) + 99999999;
 var redisClient = redis.createClient(settings.socketioSettings);
 sub.subscribe('notif-server');
-pub.publish('notif-server', JSON.stringify({idserver: idServer}));
+pub.publish('notif-server', JSON.stringify({idServer: idServer}));
 sub.on('message', function (channel, message) {
   message = JSON.parse(message);
-  if (message.idserver!==idServer) {
+  if (message.idServer!==idServer) {
     messageLogger.info("Received message from other server");
     if (message.type == "COLLABROOM") {
       if (message.data.type=="CHAT_MESSAGE") {
@@ -98,12 +98,19 @@ sub.on('message', function (channel, message) {
             if (err) {
               console.error("error");
             } else {
-              console.log("Worked");
               sessioninfos[message.client.id]=JSON.parse(value);
               padChannels.emit(message.padId, {client: message.client, message: message});// add to pad queue
             }
           });
         }
+        else {
+          padChannels.emit(message.padId, {client: message.client, message: message});// add to pad queue
+        }
+/*
+      } else if (message.data.type=="USER_CHANGES") {
+        //sessioninfos[message.client.id]=JSON.parse(value);
+        handleSwitchToPad(message.client, message);
+*/
       }
     }
   }
@@ -280,14 +287,14 @@ exports.handleMessage = function(client, message)
       if (thisSession.readonly) {
         messageLogger.warn("Dropped message, COLLABROOM for readonly pad");
       } else if (message.data.type == "USER_CHANGES") {
-        stats.counter('pendingEdits').inc()
-        padChannels.emit(message.padId, {client: client, message: message});// add to pad queue
         /* TODO */
         message.client = client;
-        message.idserver = idServer;
+        message.idServer = idServer;
         var stringify = require('json-stringify-safe');
         pub.publish('notif-server', stringify(message, null, 2));
         /* /TODO */
+        stats.counter('pendingEdits').inc()
+        padChannels.emit(message.padId, {client: client, message: message});// add to pad queue
       } else if (message.data.type == "USERINFO_UPDATE") {
         handleUserInfoUpdate(client, message);
       } else if (message.data.type == "CHAT_MESSAGE") {
@@ -335,8 +342,7 @@ exports.handleMessage = function(client, message)
           var auth = sessioninfos[client.id].auth;
           var checkAccessCallback = function(err, statusObject)
           {
-            /* TODO */
-            console.log("salut")
+            /* TODO */ /* It's "works" but it mustn't be the good place => memory/redis overflow => fix it */
             redisClient.on("error", function (err) {
                 console.log("Error " + err);
             });
@@ -486,7 +492,7 @@ exports.sendChatMessageToPadClients = function (time, userId, text, padId) {
       var msg = {
         type: "COLLABROOM",
         /* TODO */
-        idserver: idServer,
+        idServer: idServer,
         // il faudrait trouver un autre moyen de récupérer le padId
         padId: padId,
         /* /TODO */
@@ -879,7 +885,9 @@ function handleUserChanges(data, cb)
                                                0, "\n");
         pad.appendRevision(nlChangeset);
       }
-
+/* TODO */
+  pad.idServer = message.idServer;
+/* TODO */
       exports.updatePadClients(pad, function(er) {
         ERR(er)
       });
@@ -943,8 +951,9 @@ exports.updatePadClients = function(pad, callback)
             // next if session has not been deleted
             if(sessioninfos[sid] == null)
               return callback(null);
-
-            if(author == sessioninfos[sid].author)
+/* TODO */
+            if(idServer == pad.idServer && author == sessioninfos[sid].author)
+/* /TODO */
             {
               client.json.send({"type":"COLLABROOM","data":{type:"ACCEPT_COMMIT", newRev:r}});
             }
@@ -981,7 +990,6 @@ exports.updatePadClients = function(pad, callback)
  */
 function _correctMarkersInPad(atext, apool) {
   var text = atext.text;
-
   // collect char positions of line markers (e.g. bullets) in new atext
   // that aren't at the start of a line
   var badMarkers = [];
