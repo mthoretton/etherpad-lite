@@ -89,7 +89,6 @@ sub.on('message', function (channel, message) {
       }
       if (message.data.type=="USER_CHANGES") {
         stats.counter('pendingEdits').inc()
-        console.log(message.client.id)
         if(!sessioninfos[message.client.id]) {
           redisClient.on("error", function (err) {
             console.log("Error " + err);
@@ -226,6 +225,9 @@ exports.handleDisconnect = function(client)
 
   //Delete the sessioninfos entrys of this session
   delete sessioninfos[client.id];
+  /* TODO */
+  redisClient.del("client_"+client.id);
+  /* /TODO */
 }
 
 /**
@@ -342,14 +344,6 @@ exports.handleMessage = function(client, message)
           var auth = sessioninfos[client.id].auth;
           var checkAccessCallback = function(err, statusObject)
           {
-            /* TODO */ /* It's "works" but it mustn't be the good place => memory/redis overflow => fix it */
-            redisClient.on("error", function (err) {
-                console.log("Error " + err);
-            });
-            var stringify = require('json-stringify-safe');
-            redisClient.set("client_"+client.id, stringify(sessioninfos[client.id], null, 2), redis.print); // marche pas le client.json
-
-            /* /TODO */
             if(ERR(err, callback)) return;
 
             //access was granted
@@ -1383,6 +1377,15 @@ function handleClientReady(client, message)
           roomClients.push(socketio.sockets.adapter.nsp.connected[id]);
         }
       }
+
+      /* TODO */ /* It's "works" but it mustn't be the good place => memory/redis overflow => fix it */
+      redisClient.on("error", function (err) {
+          console.log("Error " + err);
+      });
+      var stringify = require('json-stringify-safe');
+      redisClient.set("client_"+client.id, stringify(sessioninfos[client.id], null, 2), redis.print); // marche pas le client.json
+
+      /* /TODO */
 
       async.forEach(roomClients, function(roomClient, callback)
       {
